@@ -1,0 +1,9 @@
+version: "2"
+authtoken: YOUR_NGROK_AUTH_TOKEN
+region: us
+console_ui: false
+web_addr: 0.0.0.0:4040
+tunnels:
+  face-recognition-api:
+    addr: 8000
+    proto: http
