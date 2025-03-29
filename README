@@ -1,34 +1,41 @@
-# Face Recognition API
+# Fast FaceNet API
 
-A FastAPI-based face recognition service using MTCNN for face detection and FaceNet for face embedding.
+A FastAPI-based face recognition system using FaceNet and MTCNN.
 
 ## Features
 
-- Face detection using MTCNN
-- Face embedding using FaceNet
-- User registration with multiple face angles
-- Face recognition and matching
-- User management (add/delete/list users)
+- Face Detection using MTCNN
+- Face Recognition using FaceNet
+- Multiple face angles support (front, left, right)
+- SQLite database storage
+- RESTful API endpoints
 
-## Installation
+## Setup
 
 1. Clone the repository
-2. Install dependencies:
+```bash
+git clone https://github.com/TrungKiencding/Face_recognition_api
+cd Face_recognition_api
+```
+
+2. Install dependencies
 ```bash
 pip install -r requirements.txt
 ```
-3. Run the application:
+
+3. Run the application
 ```bash
 python app.py
 ```
 
-## API Documentation
+## API Endpoints
 
-Once running, visit http://localhost:8000/docs for the Swagger UI documentation.
+- `GET /` - Welcome message
+- `POST /recognize` - Recognize faces in image
+- `POST /register` - Register new face
+- `POST /check` - Check database entries
+- `POST /delete` - Delete face entry
 
-## Environment Variables
+## Requirements
 
-Create a `.env` file with:
-```
-DATABASE_URL=sqlite:///./face_recognition.db
-```
+See `requirements.txt` for complete list of dependencies.
