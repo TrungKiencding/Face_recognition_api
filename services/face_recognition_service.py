@@ -18,9 +18,27 @@ class FaceRecognitionService:
         self.interpreter.allocate_tensors()
         self.input_details = self.interpreter.get_input_details()
         self.output_details = self.interpreter.get_output_details()
+        
+        # Load liveness detection model
+        self.liveness_model = tf.keras.models.load_model('model/liveness_model.h5')
         #Ngưỡng khoảng cách để xác định khuôn mặt
         self.threshold = 0.35
     
+    def live_ness_detection(self, image):
+        tf_image = cv2.resize(image, (224, 224))
+        tf_image = np.expand_dims(tf_image, axis=0)
+        tf_image = tf.cast(tf_image, tf.float32) / 255.0
+        # Dự đoán
+        predictions = self.liveness_model.predict(tf_image)
+        # Lấy xác suất
+        probability = predictions[0][0]
+        # Nếu xác suất lớn hơn 0.5 thì là thật
+        output = 1 / (1 + np.exp(-probability))
+        if output > 0.5:
+            return True
+        else:
+            return False
+        
     def detect_face(self, image):
         """Phát hiện khuôn mặt trong ảnh sử dụng MTCNN"""
         # Chuyển đổi ảnh sang định dạng RGB nếu cần
@@ -106,6 +124,10 @@ class FaceRecognitionService:
         return {"success": True, "message": f"Đã đăng ký thành công người dùng {name}", "user_id": db_user.id}
     
     def recognize_face(self, db: Session, image, id: str):
+        if not self.live_ness_detection(image):
+            return {
+                "success": False, 
+                "message": "Khuôn mặt không phải là thật"}
         """Nhận diện khuôn mặt từ ảnh"""
         # Phát hiện khuôn mặt
         face_img = self.detect_face(image)
