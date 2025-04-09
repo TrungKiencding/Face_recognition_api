@@ -22,7 +22,7 @@ class FaceRecognitionService:
         # Load liveness detection model
         self.liveness_model = tf.keras.models.load_model('model/liveness_model.h5')
         #Ngưỡng khoảng cách để xác định khuôn mặt
-        self.threshold = 0.35
+        self.threshold = 0.5
     
     def live_ness_detection(self, image):
         tf_image = cv2.resize(image, (224, 224))
