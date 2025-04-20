@@ -7,12 +7,13 @@ import models
 import pickle
 from typing import List, Optional
 import tensorflow as tf
+from PIL import Image 
 
 class FaceRecognitionService:
     def __init__(self):
         # Khởi tạo MTCNN detector
         self.detector = MTCNN()
-        
+         
         # Tải model FaceNet
         self.interpreter = tf.lite.Interpreter(model_path='model/fast_facenet.tflite')
         self.interpreter.allocate_tensors()
@@ -20,24 +21,34 @@ class FaceRecognitionService:
         self.output_details = self.interpreter.get_output_details()
         
         # Load liveness detection model
-        self.liveness_model = tf.keras.models.load_model('model/liveness_model.h5')
+        self.liveness_model = tf.keras.models.load_model('model/best_model_v2.keras')
         #Ngưỡng khoảng cách để xác định khuôn mặt
         self.threshold = 0.5
     
-    def live_ness_detection(self, image):
-        tf_image = cv2.resize(image, (224, 224))
-        tf_image = np.expand_dims(tf_image, axis=0)
-        tf_image = tf.cast(tf_image, tf.float32) / 255.0
+    def liveness_detection(self, image):
+        """Kiểm tra xem khuôn mặt có phải là thật hay không"""
+        # Chuyển đổi ảnh OpenCV (BGR) sang RGB
+        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        
+        # Chuyển đổi mảng NumPy sang đối tượng PIL.Image
+        img_pil = Image.fromarray(image_rgb)
+        
+        # Đổi kích thước ảnh về (224, 224) như trong test.py
+        target_size = (224, 224)
+        img_pil = img_pil.resize(target_size)
+        
+        # Chuyển đổi lại thành mảng NumPy và chuẩn hóa
+        img_array = np.array(img_pil, dtype=np.float32) / 255.0  # Normalize to [0,1]
+        
+        # Thêm chiều batch
+        img_array = np.expand_dims(img_array, axis=0)
         # Dự đoán
-        predictions = self.liveness_model.predict(tf_image)
+        prediction = self.liveness_model.predict(img_array, verbose=0)
         # Lấy xác suất
-        probability = predictions[0][0]
-        # Nếu xác suất lớn hơn 0.5 thì là thật
-        output = 1 / (1 + np.exp(-probability))
-        if output > 0.5:
-            return True
-        else:
-            return False
+        score = prediction[0][0]
+        result = True if score < 0.5 else False
+        
+        return result
         
     def detect_face(self, image):
         """Phát hiện khuôn mặt trong ảnh sử dụng MTCNN"""
@@ -93,6 +104,15 @@ class FaceRecognitionService:
     
     def register_face(self, db: Session, id: str, name: str, image_front, image_left, image_right):
         """Đăng ký khuôn mặt mới vào database"""
+        
+        # Kiểm tra liveness cho từng ảnh
+        if not self.liveness_detection(image_front):
+            return {"success": False, "message": "Khuôn mặt trong ảnh mặt trước không phải là thật"}
+        if not self.liveness_detection(image_left):
+            return {"success": False, "message": "Khuôn mặt trong ảnh bên trái không phải là thật"}
+        if not self.liveness_detection(image_right):
+            return {"success": False, "message": "Khuôn mặt trong ảnh bên phải không phải là thật"}
+        
         # Phát hiện khuôn mặt
         face_img_front = self.detect_face(image_front)
         face_img_left = self.detect_face(image_left)
@@ -124,17 +144,21 @@ class FaceRecognitionService:
         return {"success": True, "message": f"Đã đăng ký thành công người dùng {name}", "user_id": db_user.id}
     
     def recognize_face(self, db: Session, image, id: str):
-        if not self.live_ness_detection(image):
+        """Nhận diện khuôn mặt từ ảnh"""
+        # Phát hiện khuôn mặt
+        
+        # Kiểm tra liveness trước khi nhận diện
+        if not self.liveness_detection(image):
             return {
                 "success": False, 
                 "message": "Khuôn mặt không phải là thật"}
-        """Nhận diện khuôn mặt từ ảnh"""
+        
         # Phát hiện khuôn mặt
         face_img = self.detect_face(image)
         
         if face_img is None:
             return {
-                "success": True, 
+                "success": False, 
                 "message": "Không phát hiện khuôn mặt trong ảnh"}
         
         # Trích xuất embedding
@@ -145,8 +169,8 @@ class FaceRecognitionService:
         
         if not user:
             return {
-                "success": True, 
-                "message": "Không tìm thấy người dùng với ID {id}"}
+                "success": False, 
+                "message": f"Không tìm thấy người dùng với ID {id}"}
         
         # Tìm người dùng có khoảng cách embedding nhỏ nhất
         user_embeddings = [
@@ -171,7 +195,7 @@ class FaceRecognitionService:
                 "confidence": float(1 - min_distance) # Chuyển đổi khoảng cách thành độ tin cậy
             }
         else:
-            return {"success": True, 
+            return {"success": False, 
                     "message": "Khuôn mặt không khớp",
                     "confidence": float(1 - min_distance),
                     "name": user.name}
