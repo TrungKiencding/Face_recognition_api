@@ -24,7 +24,6 @@ wheels/
 .installed.cfg
 *.egg
 image_test
-test.py
 
 # Unit test / coverage reports
 htmlcov/
